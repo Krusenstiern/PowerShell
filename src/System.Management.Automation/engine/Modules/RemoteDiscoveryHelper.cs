@@ -25,13 +25,13 @@ using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation
 {
-    internal class RemoteDiscoveryHelper
+    internal static class RemoteDiscoveryHelper
     {
         #region PSRP
 
         private static Collection<string> RehydrateHashtableKeys(PSObject pso, string propertyName)
         {
-            var rehydrationFlags = DeserializingTypeConverter.RehydrationFlags.NullValueOk |
+            const DeserializingTypeConverter.RehydrationFlags rehydrationFlags = DeserializingTypeConverter.RehydrationFlags.NullValueOk |
                                    DeserializingTypeConverter.RehydrationFlags.MissingPropertyOk;
             Hashtable hashtable = DeserializingTypeConverter.GetPropertyValue<Hashtable>(pso, propertyName, rehydrationFlags);
             if (hashtable == null)
@@ -43,9 +43,9 @@ namespace System.Management.Automation
                 List<string> list = hashtable
                     .Keys
                     .Cast<object>()
-                    .Where(k => k != null)
-                    .Select(k => k.ToString())
-                    .Where(s => s != null)
+                    .Where(static k => k != null)
+                    .Select(static k => k.ToString())
+                    .Where(static s => s != null)
                     .ToList();
                 return new Collection<string>(list);
             }
@@ -53,7 +53,7 @@ namespace System.Management.Automation
 
         internal static PSModuleInfo RehydratePSModuleInfo(PSObject deserializedModuleInfo)
         {
-            var rehydrationFlags = DeserializingTypeConverter.RehydrationFlags.NullValueOk |
+            const DeserializingTypeConverter.RehydrationFlags rehydrationFlags = DeserializingTypeConverter.RehydrationFlags.NullValueOk |
                                    DeserializingTypeConverter.RehydrationFlags.MissingPropertyOk;
             string name = DeserializingTypeConverter.GetPropertyValue<string>(deserializedModuleInfo, "Name", rehydrationFlags);
             string path = DeserializingTypeConverter.GetPropertyValue<string>(deserializedModuleInfo, "Path", rehydrationFlags);
@@ -360,7 +360,7 @@ namespace System.Management.Automation
             Exception outerException = new InvalidOperationException(errorMessage, innerException);
 
             RemoteException remoteException = innerException as RemoteException;
-            ErrorRecord remoteErrorRecord = remoteException != null ? remoteException.ErrorRecord : null;
+            ErrorRecord remoteErrorRecord = remoteException?.ErrorRecord;
             string errorId = remoteErrorRecord != null ? remoteErrorRecord.FullyQualifiedErrorId : innerException.GetType().Name;
             ErrorCategory errorCategory = remoteErrorRecord != null ? remoteErrorRecord.CategoryInfo.Category : ErrorCategory.NotSpecified;
             ErrorRecord errorRecord = new ErrorRecord(outerException, errorId, errorCategory, null);
@@ -683,7 +683,7 @@ namespace System.Management.Automation
                     "Dependent",
                     operationOptions);
 
-                IEnumerable<CimModuleFile> associatedFiles = associatedInstances.Select(i => new CimModuleImplementationFile(i));
+                IEnumerable<CimModuleFile> associatedFiles = associatedInstances.Select(static i => new CimModuleImplementationFile(i));
                 _moduleFiles = associatedFiles.ToList();
             }
 
@@ -795,7 +795,7 @@ namespace System.Management.Automation
                 options);
             // TODO/FIXME: ETW for method results
             IEnumerable<CimModule> cimModules = syncResults
-                .Select(cimInstance => new CimModule(cimInstance))
+                .Select(static cimInstance => new CimModule(cimInstance))
                 .Where(cimModule => wildcardPattern.IsMatch(cimModule.ModuleName));
 
             if (!onlyManifests)
@@ -815,9 +815,10 @@ namespace System.Management.Automation
                     ErrorRecord errorRecord = GetErrorRecordForRemoteDiscoveryProvider(exception);
                     if (!cmdlet.MyInvocation.ExpectingInput)
                     {
-                        if (((-1) != errorRecord.FullyQualifiedErrorId.IndexOf(DiscoveryProviderNotFoundErrorId, StringComparison.OrdinalIgnoreCase)) ||
-                            (cancellationToken.IsCancellationRequested || (exception is OperationCanceledException)) ||
-                            (!cimSession.TestConnection()))
+                        if (errorRecord.FullyQualifiedErrorId.Contains(DiscoveryProviderNotFoundErrorId, StringComparison.OrdinalIgnoreCase)
+                            || cancellationToken.IsCancellationRequested
+                            || exception is OperationCanceledException
+                            || !cimSession.TestConnection())
                         {
                             cmdlet.ThrowTerminatingError(errorRecord);
                         }

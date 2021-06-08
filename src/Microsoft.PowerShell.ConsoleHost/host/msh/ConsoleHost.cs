@@ -54,6 +54,10 @@ namespace Microsoft.PowerShell
         internal const int ExitCodeInitFailure = 70; // Internal Software Error
         internal const int ExitCodeBadCommandLineParameter = 64; // Command Line Usage Error
         private const uint SPI_GETSCREENREADER = 0x0046;
+#if UNIX
+        internal const string DECCKM_ON = "\x1b[?1h";
+        internal const string DECCKM_OFF = "\x1b[?1l";
+#endif
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -116,7 +120,7 @@ namespace Microsoft.PowerShell
             {
                 Environment.SetEnvironmentVariable("PATH", pshome);
             }
-            else if (!path.StartsWith(pshome))
+            else if (!path.StartsWith(pshome, StringComparison.Ordinal))
             {
                 Environment.SetEnvironmentVariable("PATH", pshome + path);
             }
@@ -124,7 +128,7 @@ namespace Microsoft.PowerShell
             try
             {
                 string profileDir = Platform.CacheDirectory;
-#if ! UNIX
+#if !UNIX
                 if (!Directory.Exists(profileDir))
                 {
                     Directory.CreateDirectory(profileDir);
@@ -224,7 +228,7 @@ namespace Microsoft.PowerShell
                         throw hostException;
                     }
 
-                    if (s_theConsoleHost.LoadPSReadline())
+                    if (LoadPSReadline())
                     {
                         ProfileOptimization.StartProfile("StartupProfileData-Interactive");
 
@@ -254,6 +258,14 @@ namespace Microsoft.PowerShell
                 {
 #if LEGACYTELEMETRY
                     TelemetryAPI.ReportExitTelemetry(s_theConsoleHost);
+#endif
+#if UNIX
+                    if (s_theConsoleHost.IsInteractive && s_theConsoleHost.UI.SupportsVirtualTerminal)
+                    {
+                        // https://github.com/dotnet/runtime/issues/27626 leaves terminal in application mode
+                        // for now, we explicitly emit DECRST 1 sequence
+                        s_theConsoleHost.UI.Write(DECCKM_OFF);
+                    }
 #endif
                     s_theConsoleHost.Dispose();
                 }
@@ -935,7 +947,7 @@ namespace Microsoft.PowerShell
             get
             {
                 if (ui == null) return null;
-                return _consoleColorProxy ?? (_consoleColorProxy = PSObject.AsPSObject(new ConsoleColorProxy(ui)));
+                return _consoleColorProxy ??= PSObject.AsPSObject(new ConsoleColorProxy(ui));
             }
         }
 
@@ -1156,6 +1168,10 @@ namespace Microsoft.PowerShell
             AppDomain.CurrentDomain.UnhandledException += handler;
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Performance",
+            "CA1822:Mark members as static",
+            Justification = "Accesses instance members in preprocessor branch.")]
         private void BindBreakHandler()
         {
 #if UNIX
@@ -1188,14 +1204,6 @@ namespace Microsoft.PowerShell
                 ui.RawUI.BackgroundColor,
                 ConsoleHostStrings.UnhandledExceptionShutdownMessage);
             ui.WriteLine();
-        }
-
-        /// <summary>
-        /// Finalizes the instance.
-        /// </summary>
-        ~ConsoleHost()
-        {
-            Dispose(false);
         }
 
         /// <summary>
@@ -1254,6 +1262,14 @@ namespace Microsoft.PowerShell
             }
 
             _isDisposed = true;
+        }
+
+        /// <summary>
+        /// Finalizes an instance of the <see cref="ConsoleHost"/> class.
+        /// </summary>
+        ~ConsoleHost()
+        {
+            Dispose(false);
         }
 
         /// <summary>
@@ -1598,7 +1614,7 @@ namespace Microsoft.PowerShell
             return _screenReaderActive.Value;
         }
 
-        private bool LoadPSReadline()
+        private static bool LoadPSReadline()
         {
             // Don't load PSReadline if:
             //   * we don't think the process will be interactive, e.g. -command or -file
@@ -1706,7 +1722,7 @@ namespace Microsoft.PowerShell
             DoRunspaceInitialization(skipProfiles, initialCommand, configurationName, initialCommandArgs);
         }
 
-        private void OpenConsoleRunspace(Runspace runspace, bool staMode)
+        private static void OpenConsoleRunspace(Runspace runspace, bool staMode)
         {
             if (staMode && Platform.IsWindowsDesktop)
             {
@@ -1775,7 +1791,7 @@ namespace Microsoft.PowerShell
             }
             else
             {
-                string shellId = "Microsoft.PowerShell";
+                const string shellId = "Microsoft.PowerShell";
 
                 // If the system lockdown policy says "Enforce", do so. Do this after types / formatting, default functions, etc
                 // are loaded so that they are trusted. (Validation of their signatures is done in F&O)
@@ -2025,7 +2041,7 @@ namespace Microsoft.PowerShell
 
         private void WriteErrorLine(string line)
         {
-            ConsoleColor fg = ConsoleColor.Red;
+            const ConsoleColor fg = ConsoleColor.Red;
             ConsoleColor bg = UI.RawUI.BackgroundColor;
 
             UI.WriteLine(fg, bg, line);
@@ -2426,6 +2442,14 @@ namespace Microsoft.PowerShell
 
                 while (!_parent.ShouldEndSession && !_shouldExit)
                 {
+#if !UNIX
+                    if (ui.SupportsVirtualTerminal)
+                    {
+                        // need to re-enable VT mode if it was previously enabled as native commands may have turned it off
+                        ui.TryTurnOnVtMode();
+                    }
+#endif
+
                     try
                     {
                         _parent._isRunningPromptLoop = true;
@@ -2468,6 +2492,14 @@ namespace Microsoft.PowerShell
 
                             ui.Write(prompt);
                         }
+
+#if UNIX
+                        if (c.SupportsVirtualTerminal)
+                        {
+                            // enable DECCKM as .NET requires cursor keys to emit VT for Console class
+                            c.Write(DECCKM_ON);
+                        }
+#endif
 
                         previousResponseWasEmpty = false;
                         // There could be a profile. So there could be a user defined custom readline command
@@ -2572,6 +2604,14 @@ namespace Microsoft.PowerShell
                         }
                         else
                         {
+#if UNIX
+                            if (c.SupportsVirtualTerminal)
+                            {
+                                // disable DECCKM to standard mode as applications may not expect VT for cursor keys
+                                c.Write(DECCKM_OFF);
+                            }
+#endif
+
                             if (_parent.IsRunningAsync && !_parent.IsNested)
                             {
                                 _exec.ExecuteCommandAsync(line, out e, Executor.ExecutionOptions.AddOutputter | Executor.ExecutionOptions.AddToHistory);
@@ -2726,7 +2766,7 @@ namespace Microsoft.PowerShell
                 return results ?? new DebuggerCommandResults(DebuggerResumeAction.Continue, false);
             }
 
-            private bool IsIncompleteParseException(Exception e)
+            private static bool IsIncompleteParseException(Exception e)
             {
                 // Check e's type.
                 if (e is IncompleteParseException)
@@ -2866,15 +2906,13 @@ namespace Microsoft.PowerShell
         {
             internal
             ConsoleHostStartupException()
-                :
-                base()
+                : base()
             {
             }
 
             internal
             ConsoleHostStartupException(string message)
-                :
-                base(message)
+                : base(message)
             {
             }
 
@@ -2882,15 +2920,13 @@ namespace Microsoft.PowerShell
             ConsoleHostStartupException(
                 System.Runtime.Serialization.SerializationInfo info,
                 System.Runtime.Serialization.StreamingContext context)
-                :
-                base(info, context)
+                : base(info, context)
             {
             }
 
             internal
             ConsoleHostStartupException(string message, Exception innerException)
-                :
-                base(message, innerException)
+                : base(message, innerException)
             {
             }
         }
@@ -2917,7 +2953,7 @@ namespace Microsoft.PowerShell
         private bool _isDisposed;
         internal ConsoleHostUserInterface ui;
 
-        internal Lazy<TextReader> ConsoleIn { get; } = new Lazy<TextReader>(() => Console.In);
+        internal Lazy<TextReader> ConsoleIn { get; } = new Lazy<TextReader>(static () => Console.In);
 
         private string _savedWindowTitle = string.Empty;
         private readonly Version _ver = PSVersionInfo.PSVersion;
@@ -2986,9 +3022,13 @@ namespace Microsoft.PowerShell
         }
 
         internal string InitialCommand { get; set; }
+
         internal bool SkipProfiles { get; set; }
+
         internal bool StaMode { get; set; }
+
         internal string ConfigurationName { get; set; }
+
         internal Collection<CommandParameter> InitialCommandArgs { get; set; }
     }
 }   // namespace

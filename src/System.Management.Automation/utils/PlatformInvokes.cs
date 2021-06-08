@@ -8,7 +8,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace System.Management.Automation
 {
-    internal class PlatformInvokes
+    internal static class PlatformInvokes
     {
         [StructLayout(LayoutKind.Sequential)]
         internal class FILETIME
@@ -32,7 +32,7 @@ namespace System.Management.Automation
             {
                 return ((long)dwHighDateTime << 32) + dwLowDateTime;
             }
-        };
+        }
 
         [Flags]
         // dwDesiredAccess of CreateFile
@@ -687,24 +687,6 @@ namespace System.Management.Automation
             UInt32 dwCreationDisposition,
             UInt32 dwFlagsAndAttributes,
             System.IntPtr hTemplateFile);
-
-#endif
-
-        #endregion
-
-        #region GetStdHandle
-
-#if !UNIX
-
-        internal enum StandardHandleId : uint
-        {
-            Error = unchecked((uint)-12),
-            Output = unchecked((uint)-11),
-            Input = unchecked((uint)-10),
-        }
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        public static extern IntPtr GetStdHandle(uint handleId);
 
 #endif
 

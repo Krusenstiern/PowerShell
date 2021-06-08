@@ -22,7 +22,7 @@ namespace Microsoft.PowerShell.Commands
 
         /// <summary>Breakpoint on a command</summary>
         Command
-    };
+    }
 
     /// <summary>
     /// This class implements Get-PSBreakpoint.
@@ -107,7 +107,7 @@ namespace Microsoft.PowerShell.Commands
                 breakpoints = Filter(
                     breakpoints,
                     Id,
-                    (Breakpoint breakpoint, int id) => breakpoint.Id == id);
+                    static (Breakpoint breakpoint, int id) => breakpoint.Id == id);
             }
             else if (ParameterSetName.Equals(CommandParameterSetName, StringComparison.OrdinalIgnoreCase))
             {
@@ -222,9 +222,9 @@ namespace Microsoft.PowerShell.Commands
         /// Returns the items in the input list that match an item in the filter array according to
         /// the given selection criterion.
         /// </summary>
-        private List<Breakpoint> Filter<T>(List<Breakpoint> input, T[] filter, FilterSelector<T> selector)
+        private static List<Breakpoint> Filter<T>(List<Breakpoint> input, T[] filter, FilterSelector<T> selector)
         {
-            List<Breakpoint> output = new List<Breakpoint>();
+            List<Breakpoint> output = new();
 
             for (int i = 0; i < input.Count; i++)
             {

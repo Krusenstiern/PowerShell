@@ -516,7 +516,7 @@ namespace Microsoft.PowerShell.Commands
             }
 
             // categories that support -Parameter, -Role, -Functionality, -Component parameters
-            HelpCategory supportedCategories =
+            const HelpCategory supportedCategories =
                 HelpCategory.Alias | HelpCategory.Cmdlet | HelpCategory.ExternalScript |
                 HelpCategory.Filter | HelpCategory.Function | HelpCategory.ScriptCommand;
 
@@ -839,7 +839,7 @@ namespace Microsoft.PowerShell.Commands
                     foreach (
                         Uri result in
                             currentContext.HelpSystem.ExactMatchHelp(helpRequest).Select(
-                                helpInfo => helpInfo.GetUriForOnlineHelp()).Where(result => result != null))
+                                helpInfo => helpInfo.GetUriForOnlineHelp()).Where(static result => result != null))
                     {
                         return result.OriginalString;
                     }

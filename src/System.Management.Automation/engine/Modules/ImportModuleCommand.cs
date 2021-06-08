@@ -117,7 +117,10 @@ namespace Microsoft.PowerShell.Commands
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "Cmdlets use arrays for parameters.")]
         public string[] Function
         {
-            get { return _functionImportList; }
+            get
+            {
+                return _functionImportList;
+            }
 
             set
             {
@@ -144,7 +147,10 @@ namespace Microsoft.PowerShell.Commands
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "Cmdlets use arrays for parameters.")]
         public string[] Cmdlet
         {
-            get { return _cmdletImportList; }
+            get
+            {
+                return _cmdletImportList;
+            }
 
             set
             {
@@ -172,7 +178,10 @@ namespace Microsoft.PowerShell.Commands
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "Cmdlets use arrays for parameters.")]
         public string[] Variable
         {
-            get { return _variableExportList; }
+            get
+            {
+                return _variableExportList;
+            }
 
             set
             {
@@ -199,7 +208,10 @@ namespace Microsoft.PowerShell.Commands
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "Cmdlets use arrays for parameters.")]
         public string[] Alias
         {
-            get { return _aliasExportList; }
+            get
+            {
+                return _aliasExportList;
+            }
 
             set
             {
@@ -375,7 +387,10 @@ namespace Microsoft.PowerShell.Commands
         [ValidateSet("Local", "Global")]
         public string Scope
         {
-            get { return _scope; }
+            get
+            {
+                return _scope;
+            }
 
             set
             {
@@ -573,11 +588,19 @@ namespace Microsoft.PowerShell.Commands
 
             if (!moduleLoaded)
             {
-                bool found;
-                PSModuleInfo module = LoadBinaryModule(false, null, null, suppliedAssembly, null, null,
+                PSModuleInfo module = LoadBinaryModule(
+                    trySnapInName: false,
+                    moduleName: null,
+                    fileName: null,
+                    suppliedAssembly,
+                    moduleBase: null,
+                    ss: null,
                     importModuleOptions,
                     ManifestProcessingFlags.LoadElements | ManifestProcessingFlags.WriteErrors | ManifestProcessingFlags.NullOnFirstError,
-                    this.BasePrefix, false /* loadTypes */ , false /* loadFormats */, out found);
+                    this.BasePrefix,
+                    loadTypes: false,
+                    loadFormats: false,
+                    out bool found);
 
                 if (found && module != null)
                 {
@@ -1285,8 +1308,8 @@ namespace Microsoft.PowerShell.Commands
                 this,
                 this.CancellationToken).ToList();
 
-            IEnumerable<RemoteDiscoveryHelper.CimModule> remotePsCimModules = remoteModules.Where(cimModule => cimModule.IsPsCimModule);
-            IEnumerable<string> remotePsrpModuleNames = remoteModules.Where(cimModule => !cimModule.IsPsCimModule).Select(cimModule => cimModule.ModuleName);
+            IEnumerable<RemoteDiscoveryHelper.CimModule> remotePsCimModules = remoteModules.Where(static cimModule => cimModule.IsPsCimModule);
+            IEnumerable<string> remotePsrpModuleNames = remoteModules.Where(static cimModule => !cimModule.IsPsCimModule).Select(static cimModule => cimModule.ModuleName);
             foreach (string psrpModuleName in remotePsrpModuleNames)
             {
                 string errorMessage = string.Format(
@@ -1304,7 +1327,7 @@ namespace Microsoft.PowerShell.Commands
             //
             // report an error if some modules were not found
             //
-            IEnumerable<string> allFoundModuleNames = remoteModules.Select(cimModule => cimModule.ModuleName).ToList();
+            IEnumerable<string> allFoundModuleNames = remoteModules.Select(static cimModule => cimModule.ModuleName).ToList();
             foreach (string requestedModuleName in moduleNames)
             {
                 var wildcardPattern = WildcardPattern.Get(requestedModuleName, WildcardOptions.IgnoreCase | WildcardOptions.CultureInvariant);
@@ -1393,7 +1416,7 @@ namespace Microsoft.PowerShell.Commands
             return cimModuleFile.FileCode == RemoteDiscoveryHelper.CimFileCode.CmdletizationV1;
         }
 
-        private IEnumerable<string> CreateCimModuleFiles(
+        private static IEnumerable<string> CreateCimModuleFiles(
             RemoteDiscoveryHelper.CimModule remoteCimModule,
             RemoteDiscoveryHelper.CimFileCode fileCode,
             Func<RemoteDiscoveryHelper.CimModuleFile, bool> filesFilter,
@@ -2068,7 +2091,7 @@ namespace Microsoft.PowerShell.Commands
             return moduleProxyList;
         }
 
-        private void SetModuleBaseForEngineModules(string moduleName, System.Management.Automation.ExecutionContext context)
+        private static void SetModuleBaseForEngineModules(string moduleName, System.Management.Automation.ExecutionContext context)
         {
             // Set modulebase of engine modules to point to $pshome
             // This is so that Get-Help can load the correct help.

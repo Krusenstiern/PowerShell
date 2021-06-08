@@ -17,30 +17,45 @@ using Microsoft.PowerShell.Commands.Internal;
 
 namespace Microsoft.PowerShell.Commands
 {
+
+#nullable enable
     internal interface IRegistryWrapper
     {
-        void SetValue(string name, object value);
-        void SetValue(string name, object value, RegistryValueKind valueKind);
+        void SetValue(string? name, object value);
+
+        void SetValue(string? name, object value, RegistryValueKind valueKind);
+
         string[] GetValueNames();
+
         void DeleteValue(string name);
+
         string[] GetSubKeyNames();
-        IRegistryWrapper CreateSubKey(string subkey);
-        IRegistryWrapper OpenSubKey(string name, bool writable);
+
+        IRegistryWrapper? CreateSubKey(string subkey);
+
+        IRegistryWrapper? OpenSubKey(string name, bool writable);
+
         void DeleteSubKeyTree(string subkey);
-        object GetValue(string name);
-        object GetValue(string name, object defaultValue, RegistryValueOptions options);
-        RegistryValueKind GetValueKind(string name);
+
+        object? GetValue(string? name);
+
+        object? GetValue(string? name, object? defaultValue, RegistryValueOptions options);
+
+        RegistryValueKind GetValueKind(string? name);
 
         object RegistryKey { get; }
 
         void SetAccessControl(ObjectSecurity securityDescriptor);
+
         ObjectSecurity GetAccessControl(AccessControlSections includeSections);
+
         void Close();
 
         string Name { get; }
 
         int SubKeyCount { get; }
     }
+#nullable restore
 
     internal static class RegistryWrapperUtils
     {
